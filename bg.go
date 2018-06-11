@@ -6,17 +6,16 @@ import (
 )
 
 type BgScreen struct {
-	id           int
-	row          int
-	column       int
-	cell_width   int
-	cell_height  int
-	offset       image.Point
-	h_scrollable bool
-	v_scrollable bool
-	priority     int
-	text         []int
-	pat          []gowsdisplay.PIXELARRAY
+	id          int
+	row         int
+	column      int
+	cell_width  int
+	cell_height int
+	offset      image.Point
+	scrollable  bool
+	priority    int
+	data        []int
+	pat         []gowsdisplay.PIXELARRAY
 }
 
 func NewBg(id int, row int, col int, cw int, ch int) *BgScreen {
@@ -25,9 +24,10 @@ func NewBg(id int, row int, col int, cw int, ch int) *BgScreen {
 	bg.row = row
 	bg.column = col
 	bg.offset = image.Pt(0, 0)
-	bg.h_scrollable = true
-	bg.v_scrollable = true
-	bg.text = make([]int, row*col)
+	bg.cell_width = cw
+	bg.cell_height = ch
+	bg.scrollable = true
+	bg.data = make([]int, row*col)
 	bg.pat = make([]gowsdisplay.PIXELARRAY, 0)
 	return bg
 }
@@ -44,9 +44,8 @@ func (bg *BgScreen) SetPriority(p int) {
 	bg.priority = p
 }
 
-func (bg *BgScreen) SetScrollable(h, v bool) {
-	bg.h_scrollable = h
-	bg.v_scrollable = v
+func (bg *BgScreen) SetScrollable(s bool) {
+	bg.scrollable = s
 }
 
 func (bg *BgScreen) Put(x int, y int, patid int) {
@@ -55,7 +54,7 @@ func (bg *BgScreen) Put(x int, y int, patid int) {
 		// Nothing to do.
 		return
 	}
-	bg.text[x+y*bg.row] = patid
+	bg.data[x+y*bg.row] = patid
 }
 
 func (bg *BgScreen) Get(x int, y int) (patid int) {
@@ -63,7 +62,7 @@ func (bg *BgScreen) Get(x int, y int) (patid int) {
 		// Nothing to do.
 		return -1
 	}
-	return bg.text[x+y*bg.row]
+	return bg.data[x+y*bg.row]
 }
 
 func (bg *BgScreen) AddPixelPattern(pix gowsdisplay.PIXELARRAY) {

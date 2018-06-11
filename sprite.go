@@ -10,6 +10,10 @@ type Pattern struct {
 	pix    gowsdisplay.PIXELARRAY
 }
 
+func (p *Pattern) GetPix() gowsdisplay.PIXELARRAY {
+	return p.pix
+}
+
 type Sprite struct {
 	id   int
 	pos  image.Point

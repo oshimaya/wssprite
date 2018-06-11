@@ -3,6 +3,7 @@ package wssprite
 import (
 	"github.com/oshimaya/gowsdisplay"
 	"image"
+	"image/color"
 )
 
 // Sprite screen manager
@@ -41,13 +42,26 @@ func NewSpriteScreen(dev string, width int, height int, spnum int, bgnum int) (*
 	}
 	pix.StoreImage(image.NewRGBA(image.Rect(0, 0, width, height)), wsd.GetRGBmask())
 
+	lowpix, err := wsd.NewPixelArray()
+	if err != nil {
+		wsd.Close()
+		return nil, err
+	}
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	for y := 0; y < width; y++ {
+		for x := 0; x < width; x++ {
+			img.Set(x, y, color.NRGBA{0, 0, 0, 255})
+		}
+	}
+	lowpix.StoreImage(img, wsd.GetRGBmask())
+	scr.back = lowpix
 	scr.vsc.data = pix
 	sp := make([]Sprite, spnum)
 	for i := range sp {
 		sp[i] = NewSprite(i + 1)
 	}
 	scr.sp = sp
-	scr.bg = make([]BgScreen, bgnum)
+	scr.bg = make([]BgScreen, 0, bgnum)
 	// CreateBg
 
 	return scr, nil
@@ -66,7 +80,7 @@ func (scr *SpriteScreen) GetSprites() []Sprite {
 }
 
 func (scr *SpriteScreen) GetBg(num int) *BgScreen {
-	return &scr.bg[num]
+	return &scr.bg[num-1]
 }
 
 func (scr *SpriteScreen) GetVscreen() *Vscreen {
@@ -133,6 +147,50 @@ func (scr *SpriteScreen) DrawSprite(id int) {
 			scr.vsc.SetAttr(sp_x, sp_y, sp.id)
 		}
 	}
+}
+func (scr *SpriteScreen) DrawBg(id int) {
+	if id > len(scr.bg) || id <= 0 {
+		return
+	}
+	bg := scr.bg[id-1]
+	if !bg.scrollable {
+		for cy := 0; cy < bg.column; cy++ {
+			for cx := 0; cx < bg.row; cx++ {
+				px := cx*bg.cell_width + bg.offset.X
+				py := cy*bg.cell_height + bg.offset.Y
+				num := bg.data[cx+cy*bg.row] // pat num
+				if num < len(bg.pat) || num != 0 {
+					pat := bg.pat[num]
+					scr.vsc.data.PutPixelPat(px, py, pat)
+				}
+			}
+		}
+	} else {
+		dx, ex := caldiff(bg.row, bg.cell_width, bg.offset.X)
+		dy, ey := caldiff(bg.column, bg.cell_height, bg.offset.Y)
+		for y := -ey; y < scr.vsc.data.GetHeight(); y += bg.cell_height {
+			for x := -ex; x < scr.vsc.data.GetWidth(); x += bg.cell_width {
+				n := ((x + ex + dx) / bg.cell_width % bg.row) + ((y+ey+dy)/bg.cell_height%bg.column)*bg.row
+				num := bg.data[n]
+				if num < len(bg.pat) || num != 0 {
+					pat := bg.pat[num]
+					scr.vsc.data.PutPixelPat(x, y, pat)
+				}
+			}
+		}
+	}
+
+}
+func caldiff(a int, ca int, n int) (int, int) {
+	w := a * ca
+	dx := ((0-n)%w + w) % w
+	ex := dx % ca
+	dx = dx / ca * ca
+	return dx, ex
+}
+
+func (scr *SpriteScreen) DrawLowest() {
+	scr.vsc.data.PutPixelPat(0, 0, scr.back)
 }
 
 func (scr *SpriteScreen) CheckSpriteHit(id int) []int {
